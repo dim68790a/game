@@ -37,10 +37,10 @@ worldy = 720
 fps = 60
 ani = 10
 ALPHA = (0, 255, 0)
-
 MENU = 0
 PLAYING = 1
 GAME_OVER = 2
+PAUSED = 3
 game_state = MENU
 
 '''
@@ -446,6 +446,17 @@ class Level():
 
         return plat_list
 
+
+class Platform(pygame.sprite.Sprite):
+    def __init__(self, xloc, yloc, imgw, imgh, img):
+        pygame.sprite.Sprite.__init__(self)
+        self.image = pygame.image.load(os.path.join('images', img)).convert()
+        self.image.convert_alpha()
+        self.image.set_colorkey(ALPHA)
+        self.rect = self.image.get_rect()
+        self.rect.y = yloc
+        self.rect.x = xloc
+
 class Camera:
     def __init__(self, width, height):
         self.camera = pygame.Rect(0, 0, width, height)
@@ -469,16 +480,6 @@ class Camera:
         self.camera.y = min(0, self.camera.y)
         self.camera.x = max(-(self.width - worldx), self.camera.x)
         self.camera.y = max(-(self.height - worldy), self.camera.y)
-
-class Platform(pygame.sprite.Sprite):
-    def __init__(self, xloc, yloc, imgw, imgh, img):
-        pygame.sprite.Sprite.__init__(self)
-        self.image = pygame.image.load(os.path.join('images', img)).convert()
-        self.image.convert_alpha()
-        self.image.set_colorkey(ALPHA)
-        self.rect = self.image.get_rect()
-        self.rect.y = yloc
-        self.rect.x = xloc
 
 
 '''
@@ -524,8 +525,10 @@ start_button = Button(worldx // 2 - 100, worldy // 2 - 50, 200, 50, "Start", (70
 exit_button = Button(worldx // 2 - 100, worldy // 2 + 50, 200, 50, "Exit", (70, 70, 70), (100, 100, 100))
 restart_button = Button(worldx // 2 - 100, worldy // 2 - 50, 200, 50, "Restart", (70, 70, 70), (100, 100, 100))
 menu_button = Button(worldx // 2 - 100, worldy // 2 + 50, 200, 50, "Menu", (70, 70, 70), (100, 100, 100))
+resume_button = Button(worldx // 2 - 100, worldy // 2 - 50, 200, 50, "Resume", (70, 70, 70), (100, 100, 100))
 
 init_game()
+
 
 '''
 Main Loop
@@ -550,6 +553,8 @@ while running:
 
         elif game_state == PLAYING:
             if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    game_state = PAUSED
                 if event.key == pygame.K_LEFT or event.key == ord('a'):
                     player.control(-steps, 0)
                 if event.key == pygame.K_RIGHT or event.key == ord('d'):
@@ -567,6 +572,15 @@ while running:
                     player.control(steps, 0)
                 if event.key == pygame.K_RIGHT or event.key == ord('d'):
                     player.control(-steps, 0)
+
+        elif game_state == PAUSED:
+            resume_button.check_hover(mouse_pos)
+            menu_button.check_hover(mouse_pos)
+
+            if resume_button.is_clicked(mouse_pos, event):
+                game_state = PLAYING
+            elif menu_button.is_clicked(mouse_pos, event):
+                game_state = MENU
 
         elif game_state == GAME_OVER:
             restart_button.check_hover(mouse_pos)
@@ -590,7 +604,7 @@ while running:
     world.blit(backdrop, backdropbox)
 
     if game_state == MENU:
-        title_text = title_font.render("Platform Fighter", True, (255, 255, 255))
+        title_text = title_font.render("fighting", True, (255, 255, 255))
         title_rect = title_text.get_rect(center=(worldx // 2, worldy // 3))
         world.blit(title_text, title_rect)
 
@@ -609,6 +623,29 @@ while running:
 
         world.blit(player.image, camera.apply(player))
         draw_hud()
+
+    elif game_state == PAUSED:
+        for entity in ground_list:
+            world.blit(entity.image, camera.apply(entity))
+        for entity in plat_list:
+            world.blit(entity.image, camera.apply(entity))
+
+        for entity in enemy_list:
+            if entity.is_alive:
+                world.blit(entity.image, camera.apply(entity))
+
+        world.blit(player.image, camera.apply(player))
+
+        overlay = pygame.Surface((worldx, worldy), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 150))
+        world.blit(overlay, (0, 0))
+
+        pause_text = title_font.render("Paused", True, (255, 255, 255))
+        pause_rect = pause_text.get_rect(center=(worldx // 2, worldy // 3))
+        world.blit(pause_text, pause_rect)
+
+        resume_button.draw(world)
+        menu_button.draw(world)
 
     elif game_state == GAME_OVER:
         overlay = pygame.Surface((worldx, worldy), pygame.SRCALPHA)
