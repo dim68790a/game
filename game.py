@@ -8,10 +8,11 @@ pygame.font.init()
 font = pygame.font.SysFont('Arial', 24)
 title_font = pygame.font.SysFont('Arial', 48)
 
-
 def draw_hud():
+    # Фон для HUD
     pygame.draw.rect(world, (50, 50, 50), (0, 0, worldx, 40))
 
+    # Статистика игрока (слева)
     player_hp_text = font.render(f"HP: {player.health}", True, (255, 255, 255))
     player_parry_cd = max(0, player.parry_cooldown / fps)
     player_parry_text = font.render(f"Parry CD: {player_parry_cd:.1f}s", True, (255, 255, 255))
@@ -19,8 +20,14 @@ def draw_hud():
     world.blit(player_hp_text, (10, 10))
     world.blit(player_parry_text, (150, 10))
 
+    heavy_cd = max(0, player.heavy_attack_cooldown / fps)
+    heavy_text = font.render(f"Heavy CD: {heavy_cd:.1f}s", True,
+                             (0, 255, 0) if player.heavy_attack_cooldown == 0 else (255, 255, 255))
+    world.blit(heavy_text, (300, 10))
+
+    # Статистика врагов (справа)
     if len(enemy_list) > 0:
-        enemy = enemy_list.sprites()[0]
+        enemy = enemy_list.sprites()[0]  # Берем первого врага
         enemy_hp_text = font.render(f"Enemy HP: {enemy.health}", True, (255, 255, 255))
         enemy_attack_cd = max(0, (enemy.attack_delay - enemy.attack_timer) / fps)
         enemy_attack_text = font.render(f"Attack in: {enemy_attack_cd:.1f}s", True, (255, 255, 255))
@@ -28,14 +35,14 @@ def draw_hud():
         world.blit(enemy_hp_text, (worldx - 250, 10))
         world.blit(enemy_attack_text, (worldx - 450, 10))
 
-
 '''
 Variables
 '''
-worldx = 1280
-worldy = 720
+worldx = 1920
+worldy = 1080
 fps = 60
 ani = 10
+main = True
 ALPHA = (0, 255, 0)
 MENU = 0
 PLAYING = 1
@@ -46,8 +53,6 @@ game_state = MENU
 '''
 Objects
 '''
-
-
 class Button:
     def __init__(self, x, y, width, height, text, color, hover_color):
         self.rect = pygame.Rect(x, y, width, height)
@@ -74,7 +79,6 @@ class Button:
             return self.rect.collidepoint(pos)
         return False
 
-
 class Player(pygame.sprite.Sprite):
     def __init__(self):
         pygame.sprite.Sprite.__init__(self)
@@ -82,7 +86,6 @@ class Player(pygame.sprite.Sprite):
         self.movey = 0
         self.frame = 0
         self.health = 2
-        self.max_health = 2
         self.images = []
         self.attack_images = []
         self.facing_right = True
@@ -91,9 +94,16 @@ class Player(pygame.sprite.Sprite):
         self.parry_cooldown = 0
         self.is_parrying = False
         self.parry_frames = 0
-        self.parry_window = 10
-        self.parry_range = 120
+        self.parry_window = 10  # Количество кадров для парирования
+        self.parry_range = 120  # Дистанция парирования
+        self.heavy_attack_images = []  # Спрайты для сильной атаки
+        self.is_heavy_attacking = False
+        self.heavy_attack_cooldown = 0
+        self.heavy_attack_damage = 2
+        self.heavy_attack_range = 120  # Большая дистанция
+        self.heavy_attack_duration = 40  # Дольше обычной
 
+        # Загрузка анимаций
         for i in range(1, 5):
             img = pygame.image.load(os.path.join('images', 'hero' + str(i) + '.png')).convert()
             img.convert_alpha()
@@ -105,6 +115,12 @@ class Player(pygame.sprite.Sprite):
             img.convert_alpha()
             img.set_colorkey(ALPHA)
             self.attack_images.append(img)
+
+        for i in range(1, 5):
+            img = pygame.image.load(os.path.join('images', 'hero_attack' + str(i) + '.png')).convert()
+            img.convert_alpha()
+            img.set_colorkey(ALPHA)
+            self.heavy_attack_images.append(img)
 
         self.image = self.images[0]
         self.rect = self.image.get_rect()
@@ -140,12 +156,31 @@ class Player(pygame.sprite.Sprite):
                 if attack_rect.colliderect(enemy.rect):
                     enemy.take_damage(self.attack_damage)
 
+    def heavy_attack(self):
+        if self.heavy_attack_cooldown == 0 and not self.is_attacking:
+            self.is_heavy_attacking = True
+            self.heavy_attack_cooldown = 60  # КД больше чем у обычной
+            self.frame = 0
+
+            # Проверка попадания
+            for enemy in enemy_list:
+                attack_rect = pygame.Rect(0, 0, self.heavy_attack_range, self.rect.height)
+                if self.facing_right:
+                    attack_rect.left = self.rect.right
+                else:
+                    attack_rect.right = self.rect.left
+                attack_rect.top = self.rect.top
+
+                if attack_rect.colliderect(enemy.rect):
+                    enemy.take_damage(self.heavy_attack_damage)
+
     def parry(self):
         if self.parry_cooldown == 0:
             self.is_parrying = True
             self.parry_frames = self.parry_window
             self.parry_cooldown = 30
 
+            # Проверяем парирование атак врагов
             for enemy in enemy_list:
                 if enemy.is_attacking and enemy.attack_frame <= enemy.attack_startup:
                     enemy_attack_rect = pygame.Rect(0, 0, enemy.attack_range, enemy.rect.height)
@@ -163,7 +198,7 @@ class Player(pygame.sprite.Sprite):
                     parry_rect.top = self.rect.top
 
                     if parry_rect.colliderect(enemy_attack_rect):
-                        enemy.stun(200)
+                        enemy.stun(200)  # Оглушение врага на 60 кадров
                         return True
         return False
 
@@ -171,15 +206,19 @@ class Player(pygame.sprite.Sprite):
         if not self.is_parrying:
             self.health -= damage
             if self.health <= 0:
-                global game_state
-                game_state = GAME_OVER
+                pygame.quit()
+                sys.exit()
 
     def stun(self, frames):
-        pass
+        pass  # Можно добавить оглушение игрока
 
     def update(self):
+        # Обновление кд
         if self.attack_cooldown > 0:
             self.attack_cooldown -= 1
+
+        if self.heavy_attack_cooldown > 0:
+            self.heavy_attack_cooldown -= 1
 
         if self.parry_cooldown > 0:
             self.parry_cooldown -= 1
@@ -189,6 +228,7 @@ class Player(pygame.sprite.Sprite):
             if self.parry_frames <= 0:
                 self.is_parrying = False
 
+        # Движение и столкновения
         self.rect.x += self.movex
 
         if self.movex > 0:
@@ -219,7 +259,20 @@ class Player(pygame.sprite.Sprite):
                 self.rect.top = hit.rect.bottom
                 self.movey = 0
 
-        if self.is_attacking:
+        # Анимации
+        if self.is_heavy_attacking:
+            self.frame += 1
+            if self.frame >= self.heavy_attack_duration:
+                self.frame = 0
+                self.is_heavy_attacking = False
+
+            attack_frame = min(self.frame // (self.heavy_attack_duration // 4), 3)
+            if not self.facing_right:
+                self.image = pygame.transform.flip(self.heavy_attack_images[attack_frame], True, False)
+            else:
+                self.image = self.heavy_attack_images[attack_frame]
+
+        elif self.is_attacking:
             self.frame += 1
             if self.frame >= 3 * ani:
                 self.frame = 0
@@ -245,21 +298,8 @@ class Player(pygame.sprite.Sprite):
 
     def check_out_of_bounds(self):
         if self.rect.top > worldy:
-            global game_state
-            game_state = GAME_OVER
             return True
         return False
-
-    def reset(self):
-        self.health = self.max_health
-        self.rect.x = 0
-        self.rect.y = 505
-        self.movex = 0
-        self.movey = 0
-        self.is_attacking = False
-        self.is_parrying = False
-        self.attack_cooldown = 0
-        self.parry_cooldown = 0
 
 
 class Enemy(pygame.sprite.Sprite):
@@ -275,8 +315,6 @@ class Enemy(pygame.sprite.Sprite):
         self.attack_startup = 10
         self.attack_active = False
         self.stun_frames = 0
-        self.attack_delay = 120
-        self.attack_timer = random.randint(0, self.attack_delay)
 
         for i in range(1, 5):
             img = pygame.image.load(os.path.join('images', 'y' + str(i) + '.png')).convert()
@@ -305,14 +343,17 @@ class Enemy(pygame.sprite.Sprite):
         self.attack_timer = 0
         self.attack_delay = 120
 
-    def take_damage(self, damage):
-        self.health -= damage
-        if self.health <= 0:
-            self.is_alive = False
-            enemy_list.remove(self)
+    def take_damage(self, damage, is_heavy_attack=False):
+        # Нельзя парировать сильную атаку
+        if is_heavy_attack or not self.is_attacking or self.attack_frame > self.attack_startup:
+            self.health -= damage
+            if self.health <= 0:
+                self.is_alive = False
+                enemy_list.remove(self)
 
     def stun(self, frames):
         self.stun_frames = frames
+        print('dfgf')
 
     def attack_player(self):
         if self.attack_cooldown == 0 and self.stun_frames == 0:
@@ -321,6 +362,7 @@ class Enemy(pygame.sprite.Sprite):
             self.attack_cooldown = 60
             self.attack_active = False
 
+            # Определяем направление к игроку
             if player.rect.centerx > self.rect.centerx:
                 self.facing_right = True
             else:
@@ -331,11 +373,13 @@ class Enemy(pygame.sprite.Sprite):
             self.stun_frames = max(0, self.stun_frames - 1)
             return
 
+        # Атака каждые 2 секунды
         self.attack_timer += 1
         if self.attack_timer >= self.attack_delay:
             self.attack_timer = 0
             self.attack_player()
 
+        # Движение
         distance = 80
         speed = 2
 
@@ -356,9 +400,11 @@ class Enemy(pygame.sprite.Sprite):
 
         self.counter += 1
 
+        # Обновление атаки
         if self.is_attacking:
             self.attack_frame += 1
 
+            # Анимация атаки
             if self.attack_frame < 3 * ani:
                 attack_frame = self.attack_frame // ani
                 if not self.facing_right:
@@ -369,6 +415,7 @@ class Enemy(pygame.sprite.Sprite):
                 self.is_attacking = False
                 self.attack_frame = 0
 
+            # Нанесение урона в определенный момент анимации
             if self.attack_frame == self.attack_startup and not self.attack_active:
                 self.attack_active = True
 
@@ -385,6 +432,7 @@ class Enemy(pygame.sprite.Sprite):
             if self.attack_frame > self.attack_startup:
                 self.attack_active = False
 
+        # Горизонтальное движение
         if not self.is_attacking:
             self.rect.x += self.movex
             hit_list = pygame.sprite.spritecollide(self, ground_list, False)
@@ -395,9 +443,11 @@ class Enemy(pygame.sprite.Sprite):
                 elif self.movex < 0:
                     self.rect.left = hit.rect.right
 
+        # Гравитация
         self.movey += self.gravity
         self.rect.y += self.movey
 
+        # Столкновения по вертикали
         hit_list = pygame.sprite.spritecollide(self, ground_list, False)
         hit_list.extend(pygame.sprite.spritecollide(self, plat_list, False))
         for hit in hit_list:
@@ -408,16 +458,16 @@ class Enemy(pygame.sprite.Sprite):
                 self.rect.top = hit.rect.bottom
                 self.movey = 0
 
+        # Обновление кд атаки
         if self.attack_cooldown > 0:
             self.attack_cooldown -= 1
-
 
 class Level():
     def bad(lvl, eloc):
         if lvl == 1:
-            enemy = Enemy(eloc[0], eloc[1], 'y1.png')
-            enemy_list = pygame.sprite.Group()
-            enemy_list.add(enemy)
+            enemy = Enemy(eloc[0], eloc[1], 'y1.png')  # spawn enemy
+            enemy_list = pygame.sprite.Group()  # create enemy group
+            enemy_list.add(enemy)  # add enemy to group
         if lvl == 2:
             print("Level " + str(lvl))
 
@@ -446,7 +496,6 @@ class Level():
 
         return plat_list
 
-
 class Platform(pygame.sprite.Sprite):
     def __init__(self, xloc, yloc, imgw, imgh, img):
         pygame.sprite.Sprite.__init__(self)
@@ -456,6 +505,10 @@ class Platform(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.y = yloc
         self.rect.x = xloc
+
+'''
+Camera
+'''
 
 class Camera:
     def __init__(self, width, height):
@@ -473,20 +526,22 @@ class Camera:
         x = -target.rect.x + int(worldx / 2)
         y = -target.rect.y + int(worldy / 2)
 
+        # Плавное движение камеры (LERP)
         self.camera.x += (x - self.camera.x) * 0.1
         self.camera.y += (y - self.camera.y) * 0.1
 
-        self.camera.x = min(0, self.camera.x)
-        self.camera.y = min(0, self.camera.y)
-        self.camera.x = max(-(self.width - worldx), self.camera.x)
-        self.camera.y = max(-(self.height - worldy), self.camera.y)
+        # Ограничение камеры в пределах уровня
+        self.camera.x = min(0, self.camera.x)  # left
+        self.camera.y = min(0, self.camera.y)  # top
+        self.camera.x = max(-(self.width - worldx), self.camera.x)  # right
+        self.camera.y = max(-(self.height - worldy), self.camera.y)  # bottom
 
+
+camera = Camera(2000, worldy)  # предполагаем, что уровень шириной 2000 пикселей
 
 '''
 Setup
 '''
-
-
 def init_game():
     global player, player_list, enemy_list, ground_list, plat_list, camera
 
@@ -502,7 +557,6 @@ def init_game():
     plat_list = Level.platform(1)
 
     camera = Camera(2000, worldy)
-
 
 clock = pygame.time.Clock()
 pygame.init()
@@ -529,17 +583,17 @@ resume_button = Button(worldx // 2 - 100, worldy // 2 - 50, 200, 50, "Resume", (
 
 init_game()
 
-
 '''
 Main Loop
 '''
-running = True
-while running:
+while main:
     mouse_pos = pygame.mouse.get_pos()
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            running = False
+            pygame.quit()
+            sys.exit()
+            main = False
 
         if game_state == MENU:
             start_button.check_hover(mouse_pos)
@@ -549,7 +603,7 @@ while running:
                 game_state = PLAYING
                 init_game()
             elif exit_button.is_clicked(mouse_pos, event):
-                running = False
+                main = False
 
         elif game_state == PLAYING:
             if event.type == pygame.KEYDOWN:
@@ -561,17 +615,19 @@ while running:
                     player.control(steps, 0)
                 if event.key == pygame.K_UP or event.key == ord('w'):
                     player.jump()
-                if event.key == pygame.K_SPACE:
+                if event.key == pygame.K_r:  # Обычная атака
                     player.attack()
-                if event.key == ord('f'):
+                if event.key == pygame.K_t:  # Сильная атака
+                    player.heavy_attack()
+                if event.key == pygame.K_f:  # Парирование
                     if player.parry():
                         print("Успешное парирование!")
 
-            if event.type == pygame.KEYUP:
-                if event.key == pygame.K_LEFT or event.key == ord('a'):
-                    player.control(steps, 0)
-                if event.key == pygame.K_RIGHT or event.key == ord('d'):
-                    player.control(-steps, 0)
+        if event.type == pygame.KEYUP:
+            if event.key == pygame.K_LEFT or event.key == ord('a'):
+                player.control(steps, 0)
+            if event.key == pygame.K_RIGHT or event.key == ord('d'):
+                player.control(-steps, 0)
 
         elif game_state == PAUSED:
             resume_button.check_hover(mouse_pos)
@@ -591,18 +647,21 @@ while running:
                 init_game()
             elif menu_button.is_clicked(mouse_pos, event):
                 game_state = MENU
-
     if game_state == PLAYING:
+        # Обновление камеры
         camera.update(player)
 
+    # Обновление игрока и врагов
         player.update()
         for e in enemy_list:
             e.move()
 
-        player.check_out_of_bounds()
+        if player.check_out_of_bounds():
+            print("Игрок упал за пределы карты!")
+            main = False
 
+    # Отрисовка
     world.blit(backdrop, backdropbox)
-
     if game_state == MENU:
         title_text = title_font.render("fighting", True, (255, 255, 255))
         title_rect = title_text.get_rect(center=(worldx // 2, worldy // 3))
@@ -610,17 +669,19 @@ while running:
 
         start_button.draw(world)
         exit_button.draw(world)
-
+    # Отрисовка земли и платформ
     elif game_state == PLAYING:
         for entity in ground_list:
             world.blit(entity.image, camera.apply(entity))
         for entity in plat_list:
             world.blit(entity.image, camera.apply(entity))
 
+        # Отрисовка врагов
         for entity in enemy_list:
             if entity.is_alive:
                 world.blit(entity.image, camera.apply(entity))
 
+    # Отрисовка игрока
         world.blit(player.image, camera.apply(player))
         draw_hud()
 
