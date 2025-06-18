@@ -3,6 +3,8 @@ import sys
 import os
 import math
 import random
+from variables import *
+
 
 pygame.mixer.init()
 pygame.font.init()
@@ -10,83 +12,71 @@ font = pygame.font.SysFont('Arial', 24)
 title_font = pygame.font.SysFont('Arial', 48)
 
 hit_sound = pygame.mixer.Sound(os.path.join('sounds', 'hit.wav'))
-hit_sound.set_volume(0.1)
+hit_sound.set_volume(0.2)
 walk_sound = pygame.mixer.Sound(os.path.join('sounds', 'walk.wav'))
-walk_sound.set_volume(0.3)
+walk_sound.set_volume(0.4)
 attack_sound = pygame.mixer.Sound(os.path.join('sounds', 'attack.wav'))
 attack_sound.set_volume(1)
 heavy_attack_sound = pygame.mixer.Sound(os.path.join('sounds', 'heavy_attack.wav'))
-heavy_attack_sound.set_volume(0.6)
+heavy_attack_sound.set_volume(0.7)
 dash_sound = pygame.mixer.Sound(os.path.join('sounds', 'dash.wav'))
-dash_sound.set_volume(0.6)
+dash_sound.set_volume(0.7)
 parry_sound = pygame.mixer.Sound(os.path.join('sounds', 'parry.wav'))
-parry_sound.set_volume(0.6)
+parry_sound.set_volume(0.7)
+jump_sound = pygame.mixer.Sound(os.path.join('sounds', 'jump.wav'))
+jump_sound.set_volume(0.5)
 
 
 def draw_hud():
-    pygame.draw.rect(world, (50, 50, 50), (0, 0, worldx, 40))
+    # Фон HUD
+    pygame.draw.rect(world, (30, 30, 30), (0, 0, worldx, 50))
 
-    # player1
-    player_hp_text = font.render(f"HP: {player.health}", True, (255, 255, 255))
-    player_parry_cd = max(0, player.parry_cooldown / fps)
-    player_parry_text = font.render(f"Parry CD: {player_parry_cd:.1f}s", True, (255, 255, 255))
-    player_stun = max(0, player.stun_frames / fps)
-    player_stun_text = font.render(f"Stun: {player_stun:.1f}s", True,
-                                   (255, 0, 0) if player.stun_frames > 0 else (255, 255, 255))
-    player_dash_cd = max(0, player.dash_cooldown / fps)
-    player_dash_text = font.render(f"Dash CD: {player_dash_cd:.1f}s", True, (255, 255, 255))
+    # HP игрока 1
+    hp_width = 200 * (player.health / 10)
+    hp_color = (0, 255, 0) if player.health > 3 else (255, 0, 0)
 
-    world.blit(player_hp_text, (10, 10))
-    world.blit(player_parry_text, (150, 10))
-    world.blit(player_stun_text, (300, 10))
-    world.blit(player_dash_text, (450, 10))
+    pygame.draw.rect(world, (50, 50, 50), (10, 10, 200, 20))
+    pygame.draw.rect(world, hp_color, (10, 10, hp_width, 20))
 
-    # bot
-    if game_mode == "PVE" and len(enemy_list) > 0:
-        enemy = next(iter(enemy_list))  # Берем первого врага
-        enemy_hp_text = font.render(f"Enemy HP: {enemy.health}", True, (255, 255, 255))
-        world.blit(enemy_hp_text, (worldx - 200, 10))
+    # стан игрока 1
+    stun_max = 20
+    stun_width = 200 * (1 - player.stun_frames / stun_max) if player.stun_frames > 0 else 200
+    stun_color = (255, 0, 0) if player.stun_frames > 0 else (0, 150, 255)
 
-    # player2
+    pygame.draw.rect(world, (50, 50, 50), (10, 35, 200, 10))
+    pygame.draw.rect(world, stun_color, (10, 35, stun_width, 10))
+
     if game_mode == "PVP" and player2 is not None:
-        player2_hp_text = font.render(f"P2 HP: {player2.health}", True, (255, 255, 255))
-        player2_parry_cd = max(0, player2.parry_cooldown / fps)
-        player2_parry_text = font.render(f"P2 Parry CD: {player2_parry_cd:.1f}s", True, (255, 255, 255))
-        player2_stun = max(0, player2.stun_frames / fps)
-        player2_stun_text = font.render(f"P2 Stun: {player2_stun:.1f}s", True,
-                                        (255, 0, 0) if player2.stun_frames > 0 else (255, 255, 255))
-        player2_dash_cd = max(0, player2.dash_cooldown / fps)
-        player2_dash_text = font.render(f"P2 Dash CD: {player2_dash_cd:.1f}s", True, (255, 255, 255))
+        # HP игрока 2
+        hp2_width = 200 * (player2.health / 10)
+        hp2_color = (0, 255, 0) if player2.health > 3 else (255, 0, 0)
 
-        world.blit(player2_hp_text, (worldx - 250, 10))
-        world.blit(player2_parry_text, (worldx - 450, 10))
-        world.blit(player2_stun_text, (worldx - 650, 10))
-        world.blit(player2_dash_text, (worldx - 850, 10))
+        pygame.draw.rect(world, (50, 50, 50), (worldx - 210, 10, 200, 20))
+        pygame.draw.rect(world, hp2_color, (worldx - 210, 10, hp2_width, 20))
 
+        # cтан игрока 2
+        stun2_width = 200 * (1 - player2.stun_frames / stun_max) if player2.stun_frames > 0 else 200
+        stun2_color = (255, 0, 0) if player2.stun_frames > 0 else (0, 150, 255)
 
-'''
-Variables
-'''
+        pygame.draw.rect(world, (50, 50, 50), (worldx - 210, 35, 200, 10))
+        pygame.draw.rect(world, stun2_color, (worldx - 210, 35, stun2_width, 10))
 
-worldx = 1920
-worldy = 1200
-fps = 60
-ani = 10
-main = True
-ALPHA = (0, 255, 0)
-MENU = 0
-MODE_SELECT = 1
-PLAYING = 2
-GAME_OVER = 3
-PAUSED = 4
-game_state = MENU
-game_mode = "PVE"
-MAP_SELECT = 5
-current_map = 1
+    elif game_mode == "PVE" and len(enemy_list) > 0:
+        enemy = next(iter(enemy_list))
+        # HP бота
+        e_hp_width = 200 * (enemy.health / 10)
+        e_hp_color = (0, 255, 0) if enemy.health > 3 else (255, 0, 0)
 
-'''
-Objects
-'''
+        pygame.draw.rect(world, (50, 50, 50), (worldx - 210, 10, 200, 20))
+        pygame.draw.rect(world, e_hp_color, (worldx - 210, 10, e_hp_width, 20))
+
+    # счет в центре
+    if game_mode == "PVE":
+        score_text = font.render(f"{player_score_pve} - {enemy_score}", True, (255, 255, 255))
+    else:
+        score_text = font.render(f"{player_score} - {player2_score}", True, (255, 255, 255))
+    world.blit(score_text, (worldx // 2 - 20, 15))
+
 
 class Button:
     def __init__(self, x, y, width, height, text, color, hover_color):
@@ -96,6 +86,7 @@ class Button:
         self.hover_color = hover_color
         self.is_hovered = False
 
+    # отрисовка кнопки
     def draw(self, surface):
         color = self.hover_color if self.is_hovered else self.color
         pygame.draw.rect(surface, color, self.rect, border_radius=10)
@@ -105,15 +96,20 @@ class Button:
         text_rect = text_surface.get_rect(center=self.rect.center)
         surface.blit(text_surface, text_rect)
 
+    # проверка на курсор
     def check_hover(self, pos):
         self.is_hovered = self.rect.collidepoint(pos)
         return self.is_hovered
 
+    # проверка нажатия
     def is_clicked(self, pos, event):
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             return self.rect.collidepoint(pos)
         return False
 
+'''
+Objects
+'''
 
 class Player(pygame.sprite.Sprite):
     def __init__(self, is_player2=False):
@@ -163,6 +159,7 @@ class Player(pygame.sprite.Sprite):
         if is_player2:
             self.player = 2
 
+        # анимации
         for i in range(1, 3):
             img = pygame.image.load(os.path.join(f'images/player{self.player}', f'dash{i}.png')).convert()
             img.set_colorkey(ALPHA)
@@ -211,10 +208,12 @@ class Player(pygame.sprite.Sprite):
         elif x < 0:
             self.keys_pressed['left'] = True
 
+    # прыжок
     def jump(self):
         if self.stun_frames > 0 or self.is_dashing:
             return
         if self.is_on_ground:
+            jump_sound.play()
             self.movey = self.jump_power
             self.is_on_ground = False
 
@@ -237,8 +236,9 @@ class Player(pygame.sprite.Sprite):
 
         return True
 
+    # слабая атака
     def attack(self):
-        if self.stun_frames > 0 or self.attack_cooldown != 0 or self.is_dashing:
+        if self.stun_frames > 0 or self.attack_cooldown != 0 or self.is_dashing or self.is_heavy_attacking:
             return
 
         self.is_attacking = True
@@ -249,6 +249,7 @@ class Player(pygame.sprite.Sprite):
         self.attack_active = False
         attack_sound.play()
 
+    # сильная атака
     def heavy_attack(self):
         if self.stun_frames > 0 or self.heavy_attack_cooldown != 0 or self.is_attacking or self.is_dashing:
             return
@@ -261,6 +262,7 @@ class Player(pygame.sprite.Sprite):
         self.heavy_attack_active = False
         heavy_attack_sound.play()
 
+    # парироование
     def parry(self):
         if self.stun_frames > 0 or self.parry_cooldown != 0 or self.is_dashing:
             return False
@@ -307,11 +309,13 @@ class Player(pygame.sprite.Sprite):
                 global game_state
                 game_state = GAME_OVER
 
+    # обездвиживание
     def stun(self, frames):
         self.stun_frames = frames
         self.movex = 0
         self.movey = 0
 
+    # обновление переменных
     def update(self):
         if self.attack_cooldown > 0:
             self.attack_cooldown -= 1
@@ -554,6 +558,7 @@ class Enemy(pygame.sprite.Sprite):
         self.aggression = 0.7
         self.player = 2
 
+        # анимации
         for i in range(1, 3):
             img = pygame.image.load(os.path.join(f'images/player{self.player}', f'dash{i}.png')).convert()
             img.set_colorkey(ALPHA)
@@ -604,15 +609,18 @@ class Enemy(pygame.sprite.Sprite):
                 global game_state
                 game_state = GAME_OVER
 
+    # обездвиживание
     def stun(self, frames):
         self.stun_frames = frames
         self.movex = 0
         self.movey = 0
 
+    # прыжок
     def jump(self):
         if self.stun_frames > 0 or self.is_dashing:
             return
         if self.is_on_ground:
+            jump_sound.play()
             self.movey = self.jump_power
             self.is_on_ground = False
 
@@ -634,30 +642,33 @@ class Enemy(pygame.sprite.Sprite):
 
         return True
 
+    # слабая атака
     def attack(self):
-        if self.stun_frames > 0 or self.attack_cooldown != 0 or self.is_dashing:
+        if self.stun_frames > 0 or self.attack_cooldown != 0 or self.is_dashing or self.is_heavy_attacking:
             return
 
         self.is_attacking = True
         self.is_in_attack_animation = True
-        self.attack_cooldown = 40
+        self.attack_cooldown = 30
         self.attack_frame = 0
         self.has_hit = False
         self.attack_active = False
         attack_sound.play()
 
+    # сильная атака
     def heavy_attack(self):
         if self.stun_frames > 0 or self.heavy_attack_cooldown != 0 or self.is_attacking or self.is_dashing:
             return
 
         self.is_heavy_attacking = True
         self.is_in_attack_animation = True
-        self.heavy_attack_cooldown = 90
+        self.heavy_attack_cooldown = 80
         self.heavy_attack_frame = 0
         self.has_heavy_hit = False
         self.heavy_attack_active = False
         heavy_attack_sound.play()
 
+    # парирование
     def parry(self):
         if self.stun_frames > 0 or self.parry_cooldown != 0 or self.is_dashing:
             return False
@@ -697,6 +708,7 @@ class Enemy(pygame.sprite.Sprite):
             return
         self.decision_timer = 0
 
+        # передаем ему информацию о платформах и игроке
         ground_ahead = self.check_ground_ahead()
         player_above = self.check_player_above()
         player_below = self.check_player_below()
@@ -790,6 +802,7 @@ class Enemy(pygame.sprite.Sprite):
         return (abs(player.rect.centerx - self.rect.centerx) < 200 and
                 player.rect.top > self.rect.bottom)
 
+    # обновление переменных
     def update(self):
         if self.attack_cooldown > 0:
             self.attack_cooldown -= 1
@@ -942,6 +955,7 @@ class Enemy(pygame.sprite.Sprite):
 
 
 class Level():
+    # спавн врага
     @staticmethod
     def bad(lvl):
         if lvl == 1:
@@ -954,46 +968,40 @@ class Level():
             enemy_list.add(enemy)
         return enemy_list
 
+    # поверхности для бота
     @staticmethod
     def ground(lvl, x, y, w, h):
         ground_list = pygame.sprite.Group()
         return ground_list
 
+    # создание платформ
     @staticmethod
     def platform(lvl):
         plat_list = pygame.sprite.Group()
         if lvl == 1:
-            plat = Platform(100, worldy - 97 - 128, 285, 67, 'blockm22.png')
-            plat_list.add(plat)
-            plat = Platform(500, worldy - 97 - 320, 197, 54, 'blockm21.png')
-            plat_list.add(plat)
-            plat = Platform(1300, worldy - 97 - 320, 197, 54, 'blockm21.png')
-            plat_list.add(plat)
+            plat_list.add(Platform(100, worldy - 97 - 128,  'blockm22.png'))
+            plat_list.add(Platform(500, worldy - 97 - 320,  'blockm21.png'))
+            plat_list.add(Platform(1300, worldy - 97 - 320,  'blockm21.png'))
         elif lvl == 2:
-            plat = Platform(870, worldy - 97 - 180, 285, 67, 'blockm11.png')
-            plat_list.add(plat)
-            plat = Platform(1625, worldy - 97 - 700, 197, 54, 'blockm12.png')
-            plat_list.add(plat)
-            plat = Platform(100, worldy - 97 - 700, 285, 67, 'blockm12.png')
-            plat_list.add(plat)
-            plat = Platform(450, worldy - 97 - 370, 197, 54, 'blockm11.png')
-            plat_list.add(plat)
-            plat = Platform(800, worldy - 97 - 550, 285, 67, 'blockm13.png')
-            plat_list.add(plat)
-            plat = Platform(1300, worldy - 97 - 370, 197, 54, 'blockm11.png')
-            plat_list.add(plat)
+            plat_list.add(Platform(870, worldy - 97 - 180,  'blockm11.png'))
+            plat_list.add(Platform(1625, worldy - 97 - 700,  'blockm12.png'))
+            plat_list.add(Platform(100, worldy - 97 - 700,  'blockm12.png'))
+            plat_list.add(Platform(450, worldy - 97 - 370,  'blockm11.png'))
+            plat_list.add(Platform(800, worldy - 97 - 550,  'blockm13.png'))
+            plat_list.add(Platform(1300, worldy - 97 - 370,  'blockm11.png'))
         return plat_list
 
+    # установка фона
     @staticmethod
     def get_background(lvl):
         if lvl == 1:
             return 'stage4.jpg'
         elif lvl == 2:
-            return 'stage4.jpg'
+            return 'stage.jpg'
 
 
 class Platform(pygame.sprite.Sprite):
-    def __init__(self, xloc, yloc, imgw, imgh, img):
+    def __init__(self, xloc, yloc, img):
         pygame.sprite.Sprite.__init__(self)
         self.image = pygame.image.load(os.path.join('images', img)).convert()
         self.image.convert_alpha()
@@ -1017,12 +1025,11 @@ class Camera:
         self.min_zoom = 1.5
         self.max_zoom = 2
 
+    # применяе  камеру
     def apply(self, entity):
         return entity.rect.move(self.camera.topleft)
 
-    def apply_rect(self, rect):
-        return rect.move(self.camera.topleft)
-
+    # обновляем положение
     def update(self, target1, target2=None):
         if target2 is None:
             target2 = type('', (), {'rect': pygame.Rect(target1.rect.x + 300, target1.rect.y, 50, 50)})
@@ -1056,7 +1063,15 @@ Setup
 
 def init_game():
     global player, player2, player_list, enemy_list, ground_list, plat_list, camera, backdrop, backdropbox
+    global last_game_mode, game_mode, score_updated
+    score_updated = False
 
+    # Сбрасываем счет только если режим игры изменился
+    if last_game_mode != game_mode:
+        player_score = 0
+        enemy_score = 0
+        player2_score = 0
+        last_game_mode = game_mode
     # Загружаем выбранную карту
     backdrop = pygame.image.load(os.path.join('images', Level.get_background(current_map)))
     backdropbox = world.get_rect()
@@ -1089,8 +1104,6 @@ def init_game():
     ground_list = Level.ground(current_map, 0, worldy - 97, 1080, 97)
     plat_list = Level.platform(current_map)
 
-    camera = Camera(4000, worldy)
-
 
 clock = pygame.time.Clock()
 pygame.init()
@@ -1098,41 +1111,40 @@ world = pygame.display.set_mode([worldx, worldy])
 backdrop = pygame.image.load(os.path.join('images', 'stage4.jpg'))
 backdropbox = world.get_rect()
 player = Player()
-player.rect.x = 0
-player.rect.y = 505
 player_list = pygame.sprite.Group()
 player_list.add(player)
 player2 = None
-steps = 10
-DIFFICULTY_SELECT = 6
-difficulty = "medium"
 
 enemy_list = Level.bad(1)
 ground_list = Level.ground(1, 0, worldy - 97, 1080, 97)
 plat_list = Level.platform(1)
 
 # кнопки меню
-start_button = Button(worldx // 2 - 100, worldy // 2 - 50, 200, 50, "Start", (70, 70, 70), (100, 100, 100))
-exit_button = Button(worldx // 2 - 100, worldy // 2 + 50, 200, 50, "Exit", (70, 70, 70), (100, 100, 100))
-restart_button = Button(worldx // 2 - 100, worldy // 2 - 50, 200, 50, "Restart", (70, 70, 70), (100, 100, 100))
-menu_button = Button(worldx // 2 - 100, worldy // 2 + 50, 200, 50, "Menu", (70, 70, 70), (100, 100, 100))
-resume_button = Button(worldx // 2 - 100, worldy // 2 - 50, 200, 50, "Resume", (70, 70, 70), (100, 100, 100))
+start_button = Button(worldx // 2 - 100, worldy // 2 - 50, 200, 50, "СТАРТ", (70, 70, 70), (100, 100, 100))
+exit_button = Button(worldx // 2 - 100, worldy // 2 + 50, 200, 50, "ВЫХОД", (70, 70, 70), (100, 100, 100))
+restart_button = Button(worldx // 2 - 100, worldy // 2 - 50, 200, 50, "ЗАНОВО", (70, 70, 70), (100, 100, 100))
+menu_button = Button(worldx // 2 - 100, worldy // 2 + 50, 200, 50, "МЕНЮ", (70, 70, 70), (100, 100, 100))
+resume_button = Button(worldx // 2 - 100, worldy // 2 - 50, 200, 50, "ПРОДОЛЖИТЬ", (70, 70, 70), (100, 100, 100))
 
 # кнопки выбора режима
 pve_button = Button(worldx // 2 - 220, worldy // 2 - 50, 200, 50, "PVE", (70, 70, 70), (100, 100, 100))
 pvp_button = Button(worldx // 2 + 20, worldy // 2 - 50, 200, 50, "PVP", (70, 70, 70), (100, 100, 100))
-back_button = Button(worldx // 2 - 100, worldy // 2 + 50, 200, 50, "Back", (70, 70, 70), (100, 100, 100))
+back_button = Button(worldx // 2 - 100, worldy // 2 + 50, 200, 50, "НАЗАД", (70, 70, 70), (100, 100, 100))
 
 # кнопки выбора карты
-map1_button = Button(worldx // 2 - 220, worldy // 2 - 50, 200, 50, "Map 1", (70, 70, 70), (100, 100, 100))
-map2_button = Button(worldx // 2 + 20, worldy // 2 - 50, 200, 50, "Map 2", (70, 70, 70), (100, 100, 100))
-map_back_button = Button(worldx // 2 - 100, worldy // 2 + 50, 200, 50, "Back", (70, 70, 70), (100, 100, 100))
+map1_button = Button(worldx // 2 - 220, worldy // 2 - 50, 200, 50, "КАРТА 1", (70, 70, 70), (100, 100, 100))
+map2_button = Button(worldx // 2 + 20, worldy // 2 - 50, 200, 50, "КАРТА 2", (70, 70, 70), (100, 100, 100))
+map_back_button = Button(worldx // 2 - 100, worldy // 2 + 50, 200, 50, "НАЗАД", (70, 70, 70), (100, 100, 100))
 
 # кнопки выбора сложности
-easy_button = Button(worldx // 2 - 220, worldy // 2 - 50, 200, 50, "Easy", (70, 70, 70), (100, 100, 100))
-medium_button = Button(worldx // 2 + 20, worldy // 2 - 50, 200, 50, "Medium", (70, 70, 70), (100, 100, 100))
-hard_button = Button(worldx // 2 - 100, worldy // 2 + 50, 200, 50, "Hard", (70, 70, 70), (100, 100, 100))
-difficulty_back_button = Button(worldx // 2 - 100, worldy // 2 + 150, 200, 50, "Back", (70, 70, 70), (100, 100, 100))
+easy_button = Button(worldx // 2 - 220, worldy // 2 - 50, 200, 50, "ЛЕГКАЯ", (70, 70, 70), (100, 100, 100))
+medium_button = Button(worldx // 2 + 20, worldy // 2 - 50, 200, 50, "СРЕДНЯЯ", (70, 70, 70), (100, 100, 100))
+hard_button = Button(worldx // 2 - 100, worldy // 2 + 50, 200, 50, "ВЫСОКАЯ", (70, 70, 70), (100, 100, 100))
+difficulty_back_button = Button(worldx // 2 - 100, worldy // 2 + 150, 200, 50, "НАЗАД", (70, 70, 70), (100, 100, 100))
+
+# кнопки сброса счета
+reset_score_button = Button(worldx - 150, 10, 140, 30, "СБРОС СЧЕТА", (70, 70, 70), (100, 100, 100))
+reset_menu_button = Button(worldx // 2 - 100, worldy // 2 + 150, 200, 50, "СБРОС СЧЕТА", (70, 70, 70), (100, 100, 100))
 
 init_game()
 
@@ -1153,6 +1165,12 @@ while main:
         if game_state == MENU:
             start_button.check_hover(mouse_pos)
             exit_button.check_hover(mouse_pos)
+            reset_menu_button.check_hover(mouse_pos)
+            if reset_menu_button.is_clicked(mouse_pos, event):
+                player_score_pve = 0
+                player_score = 0
+                enemy_score = 0
+                player2_score = 0
 
             if start_button.is_clicked(mouse_pos, event):
                 game_state = MODE_SELECT
@@ -1262,6 +1280,16 @@ while main:
             elif difficulty_back_button.is_clicked(mouse_pos, event):
                 game_state = MAP_SELECT
 
+        if game_state == PLAYING:
+            reset_score_button.check_hover(mouse_pos)
+            if reset_score_button.is_clicked(mouse_pos, event):
+                player_score_pve = 0
+                player_score = 0
+                enemy_score = 0
+                player2_score = 0
+
+
+
         # плавная ходьба
         if event.type == pygame.KEYUP:
             if event.key == pygame.K_a:
@@ -1307,8 +1335,10 @@ while main:
             if restart_button.is_clicked(mouse_pos, event):
                 game_state = PLAYING
                 init_game()
+                score_updated = False
             elif menu_button.is_clicked(mouse_pos, event):
                 game_state = MENU
+                score_updated = False
 
     if game_state == PLAYING:
         if game_mode == "PVP" and player2 is not None:
@@ -1321,28 +1351,40 @@ while main:
         if game_mode == "PVP" and player2 is not None:
             player2.update()
 
-        if player.check_out_of_bounds() or (player2 is not None and player2.check_out_of_bounds()):
-            game_state = GAME_OVER
+            if player.check_out_of_bounds() or (player2 is not None and player2.check_out_of_bounds()):
+                game_state = GAME_OVER
 
         if game_mode == "PVE":
             for e in enemy_list:
                 e.update()
-                if e.check_out_of_bounds():
+                if e.check_out_of_bounds() or player.check_out_of_bounds():
                     game_state = GAME_OVER
                     break
 
     # oтрисовка
     world.blit(backdrop, backdropbox)
     if game_state == MENU:
-        title_text = title_font.render("fighting", True, (255, 255, 255))
+        title_text = title_font.render("УБИФЦА MORTAL KOMBAT", True, (255, 255, 255))
         title_rect = title_text.get_rect(center=(worldx // 2, worldy // 3))
         world.blit(title_text, title_rect)
 
+        # Отображаем счет в меню
+        if last_game_mode == "PVE":
+            score_text = font.render(f"Последний счет PvE: {player_score_pve} - {enemy_score}", True, (255, 255, 255))
+        elif last_game_mode == "PVP":
+            score_text = font.render(f"Последний счет PvP: {player_score} - {player2_score}", True, (255, 255, 255))
+        else:
+            score_text = font.render("Выберите режим игры", True, (255, 255, 255))
+
+        score_rect = score_text.get_rect(center=(worldx // 2, worldy // 3 + 100))
+        world.blit(score_text, score_rect)
+
         start_button.draw(world)
         exit_button.draw(world)
+        reset_menu_button.draw(world)
 
     elif game_state == MODE_SELECT:
-        title_text = title_font.render("Select Game Mode", True, (255, 255, 255))
+        title_text = title_font.render("РЕЖИМ ИГРЫ", True, (255, 255, 255))
         title_rect = title_text.get_rect(center=(worldx // 2, worldy // 3))
         world.blit(title_text, title_rect)
 
@@ -1351,7 +1393,7 @@ while main:
         back_button.draw(world)
 
     elif game_state == MAP_SELECT:
-        title_text = title_font.render("Select Map", True, (255, 255, 255))
+        title_text = title_font.render("ВЫБОР КАРТЫ", True, (255, 255, 255))
         title_rect = title_text.get_rect(center=(worldx // 2, worldy // 3))
         world.blit(title_text, title_rect)
 
@@ -1390,7 +1432,7 @@ while main:
         overlay.fill((0, 0, 0, 150))
         world.blit(overlay, (0, 0))
 
-        pause_text = title_font.render("Paused", True, (255, 255, 255))
+        pause_text = title_font.render("ПАУЗА", True, (255, 255, 255))
         pause_rect = pause_text.get_rect(center=(worldx // 2, worldy // 3))
         world.blit(pause_text, pause_rect)
 
@@ -1398,7 +1440,7 @@ while main:
         menu_button.draw(world)
 
     elif game_state == DIFFICULTY_SELECT:
-        title_text = title_font.render("Select Difficulty", True, (255, 255, 255))
+        title_text = title_font.render("ВЫБОР СЛОЖНОСТИ", True, (255, 255, 255))
         title_rect = title_text.get_rect(center=(worldx // 2, worldy // 3))
         world.blit(title_text, title_rect)
 
@@ -1412,24 +1454,23 @@ while main:
         overlay.fill((0, 0, 0, 150))
         world.blit(overlay, (0, 0))
 
-        if game_mode == "PVP":
-            if player.health <= 0 or player.check_out_of_bounds():
-                winner_text = title_font.render("Player 2 Wins!", True, (255, 255, 255))
-
-            else:
-                winner_text = title_font.render("Player 1 Wins!", True, (255, 255, 255))
-
-        else:  # PVE
-            enemy_alive = any(e.is_alive and not e.check_out_of_bounds() for e in enemy_list)
-
-            if player.health <= 0 or player.check_out_of_bounds():
-                winner_text = title_font.render("Enemy Wins!", True, (255, 0, 0))
-
-            elif not enemy_alive:
-                winner_text = title_font.render("You Win!", True, (0, 255, 0))
-
-            else:
-                winner_text = title_font.render("You Win!", True, (0, 255, 0))
+        if not score_updated:
+            if game_mode == "PVP":
+                if player.health <= 0 or player.check_out_of_bounds():
+                    player2_score += 1
+                    winner_text = title_font.render("ИГРОК 2 ПОБЕДИЛ!", True, (255, 255, 255))
+                else:
+                    player_score += 1
+                    winner_text = title_font.render("ИГРОК 1 ПОБЕДИЛ!", True, (255, 255, 255))
+            else:  # PVE
+                enemy_alive = any(e.is_alive and not e.check_out_of_bounds() for e in enemy_list)
+                if player.health <= 0 or player.check_out_of_bounds():
+                    enemy_score += 1
+                    winner_text = title_font.render("БОТЯРА ПОБЕДИЛ!", True, (255, 0, 0))
+                else:
+                    player_score_pve += 1
+                    winner_text = title_font.render("ТЫ ПОБЕДИЛ!", True, (0, 255, 0))
+            score_updated = True
 
         winner_rect = winner_text.get_rect(center=(worldx // 2, worldy // 3))
         world.blit(winner_text, winner_rect)
